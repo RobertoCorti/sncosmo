@@ -7,6 +7,7 @@ import warnings
 from collections import OrderedDict
 
 import numpy as np
+import numba as nb
 
 from .bandpasses import Bandpass
 from .photdata import photometric_data
@@ -49,6 +50,7 @@ def generate_chisq(data, model, spectra, signature='iminuit', modelcov=False):
     # iminuit expects each parameter to be a separate argument (including fixed
     # parameters)
     if signature == 'iminuit':
+        @nb.jit(parallel=True)
         def chisq(*parameters):
             model.parameters = parameters
 
