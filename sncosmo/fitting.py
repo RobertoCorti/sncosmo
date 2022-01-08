@@ -50,7 +50,7 @@ def generate_chisq(data, model, spectra, signature='iminuit', modelcov=False):
     # iminuit expects each parameter to be a separate argument (including fixed
     # parameters)
     if signature == 'iminuit':
-        @nb.jit
+        @nb.jit(forceobj=True)
         def chisq(*parameters):
             model.parameters = parameters
 
