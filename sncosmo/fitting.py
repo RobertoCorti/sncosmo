@@ -8,7 +8,6 @@ from collections import OrderedDict
 
 import numpy as np
 import numba as nb
-from jax import numpy as jnp, device_put
 from .bandpasses import Bandpass
 from .photdata import photometric_data
 from .utils import Interp1D, Result, ppf
@@ -60,7 +59,7 @@ def generate_chisq(data, model, spectra, signature='iminuit', modelcov=False):
                 model_flux = model.bandflux(data.band, data.time,
                                             zp=data.zp, zpsys=data.zpsys)
                 diff = data.flux - model_flux
-                phot_chisq = jnp.dot(jnp.dot(diff, invcov), diff)
+                phot_chisq = np.dot(np.dot(diff, invcov), diff)
                 full_chisq += phot_chisq
 
             if spectra is not None:
@@ -68,20 +67,16 @@ def generate_chisq(data, model, spectra, signature='iminuit', modelcov=False):
                     sample_wave, sampling_matrix = \
                         spectrum.get_sampling_matrix()
                     sample_flux = model.flux(spectrum.time, sample_wave)
-                    sample_flux = device_put(sample_flux)
-                    sampling_matrix = device_put(sampling_matrix)
                     spec_model_flux = (
-                        jnp.dot(sampling_matrix, sample_flux) /
-                        #sampling_matrix.dot(sample_flux)
-                        jnp.dot(sampling_matrix, jnp.ones_like(sample_flux))
-                        #sampling_matrix.dot(np.ones_like(sample_flux))
+                        #jnp.dot(sampling_matrix, sample_flux) /
+                        sampling_matrix.dot(sample_flux) /
+                        #jnp.dot(sampling_matrix, jnp.ones_like(sample_flux))
+                        sampling_matrix.dot(np.ones_like(sample_flux))
                     )
 
                     spec_diff = spectrum.flux - spec_model_flux
-                    spec_diff = device_put(spec_diff)
-                    spec_invcov = device_put(spec_invcov)
-                    spec_chisq = jnp.dot(jnp.dot(spec_invcov, spec_diff), spec_diff)
-                    #spec_chisq = spec_invcov.dot(spec_diff).dot(spec_diff)
+                    # spec_chisq = jnp.dot(jnp.dot(spec_invcov, spec_diff), spec_diff)
+                    spec_chisq = spec_invcov.dot(spec_diff).dot(spec_diff)
 
                     full_chisq += spec_chisq
 
