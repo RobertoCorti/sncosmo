@@ -8,6 +8,7 @@ from collections import OrderedDict
 
 import numpy as np
 import numba as nb
+
 from .bandpasses import Bandpass
 from .photdata import photometric_data
 from .utils import Interp1D, Result, ppf
@@ -21,7 +22,6 @@ class DataQualityError(Exception):
 
 def generate_chisq(data, model, spectra, signature='iminuit', modelcov=False):
     """Define and return a chisq function for use in optimization.
-
     This function pre-computes and saves the inverse covariance matrix,
     making subsequent evaluations faster. The model covariance (if specified)
     is fixed at the time the chisq function is generated."""
@@ -49,7 +49,7 @@ def generate_chisq(data, model, spectra, signature='iminuit', modelcov=False):
     # iminuit expects each parameter to be a separate argument (including fixed
     # parameters)
     if signature == 'iminuit':
-        @nb.jit(forceobj=True, nopython=True)
+        @nb.jit(nopython=True, forceobj=True)
         def chisq(*parameters):
             model.parameters = parameters
 
@@ -68,18 +68,14 @@ def generate_chisq(data, model, spectra, signature='iminuit', modelcov=False):
                         spectrum.get_sampling_matrix()
                     sample_flux = model.flux(spectrum.time, sample_wave)
                     spec_model_flux = (
-                        #jnp.dot(sampling_matrix, sample_flux) /
                         sampling_matrix.dot(sample_flux) /
-                        #jnp.dot(sampling_matrix, jnp.ones_like(sample_flux))
                         sampling_matrix.dot(np.ones_like(sample_flux))
                     )
-
                     spec_diff = spectrum.flux - spec_model_flux
-                    # spec_chisq = jnp.dot(jnp.dot(spec_invcov, spec_diff), spec_diff)
                     spec_chisq = spec_invcov.dot(spec_diff).dot(spec_diff)
 
                     full_chisq += spec_chisq
-
+            print(full_chisq)
             return full_chisq
     else:
         raise ValueError("unknown signature: {!r}".format(signature))
