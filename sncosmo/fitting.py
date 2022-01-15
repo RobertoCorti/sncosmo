@@ -52,6 +52,7 @@ def generate_chisq(data, model, spectra, signature='iminuit', modelcov=False):
     # parameters)
     if signature == 'iminuit':
         def chisq(*parameters):
+            print("parameters: ", parameters)
             model.parameters = parameters
 
             full_chisq = 0.
