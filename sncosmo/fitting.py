@@ -7,8 +7,6 @@ import warnings
 from collections import OrderedDict
 
 import numpy as np
-import numba as nb
-import jax.numpy as jnp
 
 from .bandpasses import Bandpass
 from .photdata import photometric_data
@@ -23,13 +21,14 @@ class DataQualityError(Exception):
 
 def generate_chisq(data, model, spectra, signature='iminuit', modelcov=False):
     """Define and return a chisq function for use in optimization.
+
     This function pre-computes and saves the inverse covariance matrix,
     making subsequent evaluations faster. The model covariance (if specified)
     is fixed at the time the chisq function is generated."""
 
     # precompute inverse covariance matrix
     if data is not None:
-        cov = (np.diag(data.fluxerr ** 2) if data.fluxcov is None else
+        cov = (np.diag(data.fluxerr**2) if data.fluxcov is None else
                data.fluxcov)
         if modelcov:
             _, mcov = model.bandfluxcov(data.band, data.time,
@@ -50,16 +49,16 @@ def generate_chisq(data, model, spectra, signature='iminuit', modelcov=False):
     # iminuit expects each parameter to be a separate argument (including fixed
     # parameters)
     if signature == 'iminuit':
-        @nb.jit(nopython=False, forceobj=True)
         def chisq(*parameters):
             model.parameters = parameters
+
             full_chisq = 0.
 
             if data is not None:
                 model_flux = model.bandflux(data.band, data.time,
                                             zp=data.zp, zpsys=data.zpsys)
                 diff = data.flux - model_flux
-                phot_chisq = jnp.dot(jnp.dot(diff, invcov), diff)
+                phot_chisq = np.dot(np.dot(diff, invcov), diff)
                 full_chisq += phot_chisq
 
             if spectra is not None:
@@ -67,9 +66,10 @@ def generate_chisq(data, model, spectra, signature='iminuit', modelcov=False):
                     sample_wave, sampling_matrix = \
                         spectrum.get_sampling_matrix()
                     sample_flux = model.flux(spectrum.time, sample_wave)
+                    print(sampling_matrix.shape, sample_flux.shape)
                     spec_model_flux = (
-                            sampling_matrix.dot(sample_flux) /
-                            sampling_matrix.dot(np.ones_like(sample_flux))
+                        sampling_matrix.dot(sample_flux) /
+                        sampling_matrix.dot(np.ones_like(sample_flux))
                     )
                     spec_diff = spectrum.flux - spec_model_flux
                     spec_chisq = spec_invcov.dot(spec_diff).dot(spec_diff)
@@ -108,11 +108,11 @@ def chisq(data, model, modelcov=False):
     if data.fluxcov is None and not modelcov:
         mflux = model.bandflux(data.band, data.time,
                                zp=data.zp, zpsys=data.zpsys)
-        return np.sum(((data.flux - mflux) / data.fluxerr) ** 2)
+        return np.sum(((data.flux - mflux) / data.fluxerr)**2)
 
     else:
         # need to invert a covariance matrix
-        cov = (np.diag(data.fluxerr ** 2) if data.fluxcov is None
+        cov = (np.diag(data.fluxerr**2) if data.fluxcov is None
                else data.fluxcov)
         if modelcov:
             mflux, mcov = model.bandfluxcov(data.band, data.time,
@@ -251,8 +251,8 @@ def _guess_t0_and_amplitude_photometry(data, model, minsnr):
     data_time = {}
     for band in set(significant_data.band):
         model_lc[band] = (
-                model.bandflux(band, timegrid, zp=25., zpsys='ab') /
-                model.parameters[2])
+            model.bandflux(band, timegrid, zp=25., zpsys='ab') /
+            model.parameters[2])
         mask = significant_data.band == band
         data_flux[band] = norm_flux[mask]
         data_time[band] = significant_data.time[mask]
@@ -291,11 +291,11 @@ def _guess_t0_and_amplitude_spectra(spectra, model, minsnr):
     """
 
     # Build a set of bands to use for synthetic photometry.
-    target_band_width = 500  # Angstroms
+    target_band_width = 500     # Angstroms
     minwave = model.minwave()
     maxwave = model.maxwave()
     band_count = int(math.ceil((maxwave - minwave) / target_band_width))
-    band_edges = np.linspace(minwave, maxwave, band_count + 1)
+    band_edges = np.linspace(minwave, maxwave, band_count+1)
     band_starts = band_edges[:-1]
     band_ends = band_edges[1:]
 
@@ -522,7 +522,7 @@ def fit_lc(data=None, model=None, vparam_names=[], bounds=None, spectra=None,
         *New in version 1.5.0*
 
     verbose : bool, optional
-        Prscriptsint messages during fitting.
+        Print messages during fitting.
     warn : bool, optional
         Issue a warning when dropping bands outside the wavelength range of
         the model. Default is True.
