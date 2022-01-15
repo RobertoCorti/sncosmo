@@ -58,6 +58,7 @@ def generate_chisq(data, model, spectra, signature='iminuit', modelcov=False):
                 model_flux = model.bandflux(data.band, data.time,
                                             zp=data.zp, zpsys=data.zpsys)
                 diff = data.flux - model_flux
+                print(type(diff), type(invcov))
                 phot_chisq = np.dot(np.dot(diff, invcov), diff)
                 full_chisq += phot_chisq
 
