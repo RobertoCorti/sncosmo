@@ -4,6 +4,7 @@ import copy
 import math
 import time
 import warnings
+import torch
 from collections import OrderedDict
 
 import numpy as np
@@ -35,6 +36,7 @@ def generate_chisq(data, model, spectra, signature='iminuit', modelcov=False):
                                         zp=data.zp, zpsys=data.zpsys)
             cov = cov + mcov
         invcov = np.linalg.pinv(cov)
+        invcov = torch.from_numpy(invcov).float()
 
     # If we have spectra, build the covariance matrix for them individually.
     if spectra is not None:
@@ -58,8 +60,14 @@ def generate_chisq(data, model, spectra, signature='iminuit', modelcov=False):
                 model_flux = model.bandflux(data.band, data.time,
                                             zp=data.zp, zpsys=data.zpsys)
                 diff = data.flux - model_flux
-                print(type(diff), type(invcov))
-                phot_chisq = np.dot(np.dot(diff, invcov), diff)
+                diff = torch.from_numpy(diff).float()
+
+                device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+                # load diff and invcov to GPU
+                diff = diff.to(device)
+                invcov = inuvcov.to(device)
+
+                phot_chisq = torch.dot(torch.dot(diff, invcov), diff)
                 full_chisq += phot_chisq
 
             if spectra is not None:
@@ -67,7 +75,6 @@ def generate_chisq(data, model, spectra, signature='iminuit', modelcov=False):
                     sample_wave, sampling_matrix = \
                         spectrum.get_sampling_matrix()
                     sample_flux = model.flux(spectrum.time, sample_wave)
-                    print(sampling_matrix.shape, sample_flux.shape)
                     spec_model_flux = (
                         sampling_matrix.dot(sample_flux) /
                         sampling_matrix.dot(np.ones_like(sample_flux))
