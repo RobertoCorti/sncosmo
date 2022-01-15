@@ -65,7 +65,7 @@ def generate_chisq(data, model, spectra, signature='iminuit', modelcov=False):
                 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
                 # load diff and invcov to GPU
                 diff = diff.to(device)
-                invcov = inuvcov.to(device)
+                invcov = invcov.to(device)
 
                 phot_chisq = torch.dot(torch.dot(diff, invcov), diff)
                 full_chisq += phot_chisq
