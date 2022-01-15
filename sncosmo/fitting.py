@@ -68,6 +68,11 @@ def generate_chisq(data, model, spectra, signature='iminuit', modelcov=False):
                 invcov = invcov.to(device)
 
                 phot_chisq = torch.dot(torch.dot(diff, invcov), diff)
+
+                # load to cpu phot_chisq
+                phot_chisq = phot_chisq.cpu()
+                phot_chisq = phot_chisq.numpy()
+                print(phot_chisq)
                 full_chisq += phot_chisq
 
             if spectra is not None:
