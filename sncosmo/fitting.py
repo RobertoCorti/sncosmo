@@ -4,7 +4,6 @@ import copy
 import math
 import time
 import warnings
-import torch
 from collections import OrderedDict
 
 import numpy as np
@@ -22,7 +21,6 @@ class DataQualityError(Exception):
 
 def generate_chisq(data, model, spectra, signature='iminuit', modelcov=False):
     """Define and return a chisq function for use in optimization.
-
     This function pre-computes and saves the inverse covariance matrix,
     making subsequent evaluations faster. The model covariance (if specified)
     is fixed at the time the chisq function is generated."""
@@ -36,7 +34,6 @@ def generate_chisq(data, model, spectra, signature='iminuit', modelcov=False):
                                         zp=data.zp, zpsys=data.zpsys)
             cov = cov + mcov
         invcov = np.linalg.pinv(cov)
-        invcov = torch.from_numpy(invcov).float()
 
     # If we have spectra, build the covariance matrix for them individually.
     if spectra is not None:
@@ -52,8 +49,6 @@ def generate_chisq(data, model, spectra, signature='iminuit', modelcov=False):
     # parameters)
     if signature == 'iminuit':
         def chisq(*parameters):
-            print("data: ", data is not None)
-            print("spectra: ", spectra is not None)
             model.parameters = parameters
 
             full_chisq = 0.
@@ -62,19 +57,7 @@ def generate_chisq(data, model, spectra, signature='iminuit', modelcov=False):
                 model_flux = model.bandflux(data.band, data.time,
                                             zp=data.zp, zpsys=data.zpsys)
                 diff = data.flux - model_flux
-                diff = torch.from_numpy(diff).float()
-                invcov = torch.from_numpy(invcov).float()
-
-                if torch.cuda.is_available():
-                    device = torch.device("cuda")
-                    print("device: ", device)
-                    # load diff and invcov to GPU
-                    diff = diff.to(device)
-                    invcov = invcov.to(device)
-                    phot_chisq = torch.matmul(torch.matmul(diff, invcov), diff).cpu().numpy()
-
-                else:
-                    phot_chisq = torch.matmul(torch.matmul(diff, invcov), diff).numpy()
+                phot_chisq = np.dot(np.dot(diff, invcov), diff)
                 full_chisq += phot_chisq
 
             if spectra is not None:
@@ -87,28 +70,16 @@ def generate_chisq(data, model, spectra, signature='iminuit', modelcov=False):
                         sampling_matrix.dot(np.ones_like(sample_flux))
                     )
                     spec_diff = spectrum.flux - spec_model_flux
-
-                    spec_diff = torch.from_numpy(spec_diff).float()
-                    spec_invcov = torch.from_numpy(spec_invcov).float()
-
-                    if torch.cuda.is_available():
-                        device = torch.device("cuda")
-                        print("device: ", device)
-                        # load diff and invcov to GPU
-                        spec_diff = spec_diff.to(device)
-                        spec_invcov = spec_invcov.to(device)
-                        spec_chisq = torch.matmul(torch.matmul(spec_invcov, spec_diff), spec_diff).cpu().numpy()
-
-                    else:
-                        spec_chisq = torch.matmul(torch.matmul(spec_invcov, spec_diff), spec_diff).numpy()
+                    spec_chisq = spec_invcov.dot(spec_diff).dot(spec_diff)
 
                     full_chisq += spec_chisq
-            print(full_chisq)
+
             return full_chisq
     else:
         raise ValueError("unknown signature: {!r}".format(signature))
 
     return chisq
+
 
 
 def chisq(data, model, modelcov=False):
