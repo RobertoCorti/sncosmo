@@ -4,6 +4,7 @@ import copy
 import math
 import time
 import warnings
+import torch
 from collections import OrderedDict
 
 import numpy as np
@@ -27,7 +28,7 @@ def generate_chisq(data, model, spectra, signature='iminuit', modelcov=False):
 
     # precompute inverse covariance matrix
     if data is not None:
-        cov = (np.diag(data.fluxerr**2) if data.fluxcov is None else
+        cov = (np.diag(data.fluxerr ** 2) if data.fluxcov is None else
                data.fluxcov)
         if modelcov:
             _, mcov = model.bandfluxcov(data.band, data.time,
@@ -57,7 +58,9 @@ def generate_chisq(data, model, spectra, signature='iminuit', modelcov=False):
                 model_flux = model.bandflux(data.band, data.time,
                                             zp=data.zp, zpsys=data.zpsys)
                 diff = data.flux - model_flux
-                phot_chisq = np.dot(np.dot(diff, invcov), diff)
+
+                phot_chisq = torch.dot(torch.matmul(torch.tensor(diff), torch.tensor(invcov)),
+                                       torch.tensor(diff)).item()  # np.dot(np.dot(diff, invcov), diff)
                 full_chisq += phot_chisq
 
             if spectra is not None:
@@ -66,8 +69,8 @@ def generate_chisq(data, model, spectra, signature='iminuit', modelcov=False):
                         spectrum.get_sampling_matrix()
                     sample_flux = model.flux(spectrum.time, sample_wave)
                     spec_model_flux = (
-                        sampling_matrix.dot(sample_flux) /
-                        sampling_matrix.dot(np.ones_like(sample_flux))
+                            sampling_matrix.dot(sample_flux) /
+                            sampling_matrix.dot(np.ones_like(sample_flux))
                     )
                     spec_diff = spectrum.flux - spec_model_flux
                     spec_chisq = spec_invcov.dot(spec_diff).dot(spec_diff)
@@ -79,7 +82,6 @@ def generate_chisq(data, model, spectra, signature='iminuit', modelcov=False):
         raise ValueError("unknown signature: {!r}".format(signature))
 
     return chisq
-
 
 
 def chisq(data, model, modelcov=False):
@@ -107,11 +109,11 @@ def chisq(data, model, modelcov=False):
     if data.fluxcov is None and not modelcov:
         mflux = model.bandflux(data.band, data.time,
                                zp=data.zp, zpsys=data.zpsys)
-        return np.sum(((data.flux - mflux) / data.fluxerr)**2)
+        return np.sum(((data.flux - mflux) / data.fluxerr) ** 2)
 
     else:
         # need to invert a covariance matrix
-        cov = (np.diag(data.fluxerr**2) if data.fluxcov is None
+        cov = (np.diag(data.fluxerr ** 2) if data.fluxcov is None
                else data.fluxcov)
         if modelcov:
             mflux, mcov = model.bandfluxcov(data.band, data.time,
@@ -250,8 +252,8 @@ def _guess_t0_and_amplitude_photometry(data, model, minsnr):
     data_time = {}
     for band in set(significant_data.band):
         model_lc[band] = (
-            model.bandflux(band, timegrid, zp=25., zpsys='ab') /
-            model.parameters[2])
+                model.bandflux(band, timegrid, zp=25., zpsys='ab') /
+                model.parameters[2])
         mask = significant_data.band == band
         data_flux[band] = norm_flux[mask]
         data_time[band] = significant_data.time[mask]
@@ -290,11 +292,11 @@ def _guess_t0_and_amplitude_spectra(spectra, model, minsnr):
     """
 
     # Build a set of bands to use for synthetic photometry.
-    target_band_width = 500     # Angstroms
+    target_band_width = 500  # Angstroms
     minwave = model.minwave()
     maxwave = model.maxwave()
     band_count = int(math.ceil((maxwave - minwave) / target_band_width))
-    band_edges = np.linspace(minwave, maxwave, band_count+1)
+    band_edges = np.linspace(minwave, maxwave, band_count + 1)
     band_starts = band_edges[:-1]
     band_ends = band_edges[1:]
 
