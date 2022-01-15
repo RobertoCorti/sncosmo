@@ -85,10 +85,20 @@ def generate_chisq(data, model, spectra, signature='iminuit', modelcov=False):
                         sampling_matrix.dot(np.ones_like(sample_flux))
                     )
                     spec_diff = spectrum.flux - spec_model_flux
+                    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+                    spec_diff = torch.from_numpy(spec_diff).float()
+                    spec_diff = spec_diff.to(device)
+
+                    spec_invcov = torch.from_numpy(spec_invcov).float()
+                    spec_invcov = spec_invcov.to(device)
+
                     spec_chisq = spec_invcov.dot(spec_diff).dot(spec_diff)
 
-                    full_chisq += spec_chisq
+                    spec_chisq = spec_chisq.cpu()
+                    spec_chisq = spec_chisq.numpy()
 
+                    full_chisq += spec_chisq
+            print(full_chisq)
             return full_chisq
     else:
         raise ValueError("unknown signature: {!r}".format(signature))
