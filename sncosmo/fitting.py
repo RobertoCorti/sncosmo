@@ -60,7 +60,7 @@ def generate_chisq(data, model, spectra, signature='iminuit', modelcov=False):
                 diff = data.flux - model_flux
 
                 if torch.cuda.is_available():
-                    device = torch.device("cuda:0")
+                    device = torch.device("cuda")
                     phot_chisq = torch.dot(torch.matmul(torch.tensor(diff).to(device), torch.tensor(invcov).to(device)),
                                            torch.tensor(diff).to(device)).item()
                 else:
