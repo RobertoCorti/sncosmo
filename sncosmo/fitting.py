@@ -63,17 +63,18 @@ def generate_chisq(data, model, spectra, signature='iminuit', modelcov=False):
                                             zp=data.zp, zpsys=data.zpsys)
                 diff = data.flux - model_flux
                 diff = torch.from_numpy(diff).float()
+                invcov = torch.from_numpy(invcov).float()
 
-                device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-                print("device: ", device)
-                # load diff and invcov to GPU
-                diff = diff.to(device)
-                invcov = invcov.to(device)
-                phot_chisq = torch.dot(torch.dot(diff, invcov), diff)
+                if torch.cuda.is_available():
+                    device = torch.device("cuda")
+                    print("device: ", device)
+                    # load diff and invcov to GPU
+                    diff = diff.to(device)
+                    invcov = invcov.to(device)
+                    phot_chisq = torch.matmul(torch.matmul(diff, invcov), diff).cpu().numpy()
 
-                phot_chisq = phot_chisq.cpu()
-                phot_chisq = phot_chisq.numpy()
-
+                else:
+                    phot_chisq = torch.matmul(torch.matmul(diff, invcov), diff).numpy()
                 full_chisq += phot_chisq
 
             if spectra is not None:
@@ -86,17 +87,20 @@ def generate_chisq(data, model, spectra, signature='iminuit', modelcov=False):
                         sampling_matrix.dot(np.ones_like(sample_flux))
                     )
                     spec_diff = spectrum.flux - spec_model_flux
-                    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
                     spec_diff = torch.from_numpy(spec_diff).float()
-                    spec_diff = spec_diff.to(device)
-
                     spec_invcov = torch.from_numpy(spec_invcov).float()
-                    spec_invcov = spec_invcov.to(device)
 
-                    spec_chisq = spec_invcov.dot(spec_diff).dot(spec_diff)
+                    if torch.cuda.is_available():
+                        device = torch.device("cuda")
+                        print("device: ", device)
+                        # load diff and invcov to GPU
+                        spec_diff = spec_diff.to(device)
+                        spec_invcov = spec_invcov.to(device)
+                        spec_chisq = torch.matmul(torch.matmul(spec_invcov, spec_diff), spec_diff).cpu().numpy()
 
-                    spec_chisq = spec_chisq.cpu()
-                    spec_chisq = spec_chisq.numpy()
+                    else:
+                        spec_chisq = torch.matmul(torch.matmul(spec_invcov, spec_diff), spec_diff).numpy()
 
                     full_chisq += spec_chisq
             print(full_chisq)
